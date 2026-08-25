@@ -1,0 +1,3 @@
+-keep class ai.onnxruntime.** { *; }
+-keepclasseswithmembernames class * { native <methods>; }
+-dontwarn ai.onnxruntime.**
