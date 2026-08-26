@@ -33,4 +33,11 @@ AI Background Remover includes or builds upon the following projects. Their orig
 - License: CC0 1.0 Universal public-domain dedication
 - Source: <https://commons.wikimedia.org/wiki/File:Cat_face_in_sunlight.jpg>
 
+## Manrope typeface
+
+- Copyright 2018 The Manrope Project Authors
+- License: SIL Open Font License 1.1
+- Source: <https://github.com/google/fonts/tree/main/ofl/manrope>
+- A copy of the license is included at `docs/licenses/MANROPE-OFL.txt`.
+
 This notice is informational and does not replace the license files distributed with dependency source packages or binaries.

@@ -87,8 +87,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bykunalbuilds.backgroundremover.inference.OnnxBackgroundRemover
@@ -157,30 +160,47 @@ private enum class Screen { EMPTY, PROCESSING, RESULT }
 
 @Composable
 private fun AppHeader(onInfo: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        shadowElevation = 1.dp,
     ) {
-        AppMark(36.dp)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = "AI Background Remover",
-                style = MaterialTheme.typography.titleLarge,
-                fontSize = 17.sp,
-            )
-            Text(
-                text = "KUNAL BUILDS",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold,
-                fontSize = 10.sp,
-                letterSpacing = 1.4.sp,
-            )
-        }
-        IconButton(onClick = onInfo) {
-            Icon(Icons.Outlined.Info, contentDescription = "About")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppMark(40.dp)
+            Spacer(Modifier.width(13.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "AI Background Remover",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = buildAnnotatedString {
+                        append("by ")
+                        withStyle(
+                            SpanStyle(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.ExtraBold,
+                            ),
+                        ) {
+                            append("Kunal Builds")
+                        }
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    letterSpacing = .15.sp,
+                )
+            }
+            IconButton(onClick = onInfo) {
+                Icon(Icons.Outlined.Info, contentDescription = "About")
+            }
         }
     }
 }
@@ -262,6 +282,7 @@ private fun HeroCopy(modifier: Modifier = Modifier) {
         Text(
             text = "Remove the background.\nKeep every detail.",
             style = MaterialTheme.typography.displayLarge,
+            fontWeight = FontWeight.ExtraBold,
             fontSize = 44.sp,
             lineHeight = 48.sp,
         )
@@ -329,7 +350,7 @@ private fun SelectPanel(onSelectImage: () -> Unit, modifier: Modifier = Modifier
             ) {
                 Icon(Icons.Outlined.Image, contentDescription = null)
                 Spacer(Modifier.width(9.dp))
-                Text("Select an image")
+                Text("Select an image", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -553,7 +574,7 @@ private fun AboutDialog(onDismiss: () -> Unit, onOpenInstagram: () -> Unit) {
         title = { Text("AI Background Remover", textAlign = TextAlign.Center) },
         text = {
             Column {
-                Text("Built by Kunal Builds", fontWeight = FontWeight.SemiBold)
+                Text("Built by Kunal Builds", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                 Spacer(Modifier.height(4.dp))
                 Text("Free, open source, and private by design. Photos are processed locally and are never uploaded or tracked.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(18.dp))

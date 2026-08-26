@@ -10,14 +10,19 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.FileInputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.nio.FloatBuffer
-import java.nio.channels.FileChannel
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import kotlin.coroutines.coroutineContext
 import kotlin.math.min
 
@@ -51,23 +56,99 @@ class OnnxBackgroundRemover(private val context: Context) {
 
     private fun createSession(): OrtSession {
         try {
-            val options = OrtSession.SessionOptions().apply {
-                setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                setIntraOpNumThreads(min(4, Runtime.getRuntime().availableProcessors().coerceAtLeast(2)))
-                setInterOpNumThreads(1)
+            val modelFile = prepareModelFile()
+            OrtSession.SessionOptions().use { options ->
+                options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.BASIC_OPT)
+                options.setIntraOpNumThreads(min(4, Runtime.getRuntime().availableProcessors().coerceAtLeast(2)))
+                options.setInterOpNumThreads(1)
+                options.addConfigEntry("session.disable_prepacking", "1")
+                return environment.createSession(modelFile.absolutePath, options)
             }
-            context.assets.openFd(MODEL_ASSET).use { descriptor ->
-                FileInputStream(descriptor.fileDescriptor).channel.use { channel ->
-                    val model = channel.map(
-                        FileChannel.MapMode.READ_ONLY,
-                        descriptor.startOffset,
-                        descriptor.declaredLength,
-                    )
-                    return environment.createSession(model, options)
+        } catch (error: OutOfMemoryError) {
+            Log.e(TAG, "Not enough memory to initialize the ONNX model", error)
+            throw InferenceException("Not enough memory to start the on-device AI model. Close other apps and try again.", error)
+        } catch (error: LinkageError) {
+            Log.e(TAG, "ONNX Runtime native library could not be loaded", error)
+            throw InferenceException("The on-device AI runtime is not compatible with this device.", error)
+        } catch (error: IllegalStateException) {
+            Log.e(TAG, "The verified model file could not be prepared", error)
+            throw InferenceException(error.message ?: "The on-device AI model could not be prepared.", error)
+        } catch (error: Exception) {
+            Log.e(TAG, "ONNX model session creation failed", error)
+            throw InferenceException("The on-device AI model could not be loaded.", error)
+        }
+    }
+
+    private fun prepareModelFile(): File {
+        val modelDirectory = File(context.noBackupFilesDir, "models")
+        if (!modelDirectory.exists() && !modelDirectory.mkdirs()) {
+            throw IllegalStateException("The private model directory could not be created.")
+        }
+
+        val modelFile = File(modelDirectory, MODEL_FILE_NAME)
+        val verificationFile = File(modelDirectory, "$MODEL_FILE_NAME.sha256")
+        val verifiedHash = verificationFile.takeIf(File::isFile)?.readText()?.trim()
+        if (
+            modelFile.isFile &&
+            modelFile.length() == MODEL_FILE_BYTES &&
+            verifiedHash.equals(MODEL_SHA256, ignoreCase = true)
+        ) {
+            return modelFile
+        }
+
+        if (modelDirectory.usableSpace < MODEL_FILE_BYTES + MODEL_COPY_HEADROOM_BYTES) {
+            throw IllegalStateException("There is not enough free storage to prepare the on-device model.")
+        }
+
+        val temporaryFile = File(modelDirectory, "$MODEL_FILE_NAME.copying")
+        val temporaryVerificationFile = File(modelDirectory, "$MODEL_FILE_NAME.sha256.copying")
+        temporaryFile.delete()
+        temporaryVerificationFile.delete()
+
+        try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            context.assets.open(MODEL_ASSET, android.content.res.AssetManager.ACCESS_STREAMING).use { input ->
+                FileOutputStream(temporaryFile).buffered(MODEL_COPY_BUFFER_BYTES).use { output ->
+                    val buffer = ByteArray(MODEL_COPY_BUFFER_BYTES)
+                    var copiedBytes = 0L
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        output.write(buffer, 0, count)
+                        digest.update(buffer, 0, count)
+                        copiedBytes += count
+                    }
+                    if (copiedBytes != MODEL_FILE_BYTES) {
+                        throw IllegalStateException("The bundled model has an unexpected size.")
+                    }
                 }
             }
-        } catch (error: Exception) {
-            throw InferenceException("The on-device AI model could not be loaded.", error)
+
+            val copiedHash = digest.digest().joinToString("") { byte -> "%02X".format(byte.toInt() and 0xFF) }
+            if (!copiedHash.equals(MODEL_SHA256, ignoreCase = true)) {
+                throw IllegalStateException("The bundled model failed its integrity check.")
+            }
+
+            temporaryVerificationFile.writeText(MODEL_SHA256)
+            moveReplacing(temporaryFile, modelFile)
+            moveReplacing(temporaryVerificationFile, verificationFile)
+            return modelFile
+        } finally {
+            temporaryFile.delete()
+            temporaryVerificationFile.delete()
+        }
+    }
+
+    private fun moveReplacing(source: File, destination: File) {
+        try {
+            Files.move(
+                source.toPath(),
+                destination.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING,
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(source.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 
@@ -136,6 +217,12 @@ class OnnxBackgroundRemover(private val context: Context) {
         const val MODEL_LICENSE = "MIT"
         const val MODEL_ASSET = "models/birefnet-lite-512-fp16.onnx"
         const val MODEL_SIZE = 512
+        private const val MODEL_FILE_NAME = "birefnet-lite-512-fp16.onnx"
+        private const val MODEL_FILE_BYTES = 98_484_532L
+        private const val MODEL_SHA256 = "EFF9216BB2F9D3F023D9C2B7196845A7485739AB1F231593633E4D2344FFC516"
+        private const val MODEL_COPY_BUFFER_BYTES = 1024 * 1024
+        private const val MODEL_COPY_HEADROOM_BYTES = 8L * 1024L * 1024L
+        private const val TAG = "BackgroundRemover"
         private val MEAN = floatArrayOf(0.485f, 0.456f, 0.406f)
         private val STD = floatArrayOf(0.229f, 0.224f, 0.225f)
     }

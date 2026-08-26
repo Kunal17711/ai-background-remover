@@ -29,6 +29,7 @@ Photos never leave the device. There are no accounts, analytics, ads, tracking S
 ## Technology
 
 - Kotlin, Jetpack Compose and Material 3
+- Manrope typography, bundled under the SIL Open Font License 1.1
 - ONNX Runtime for Android
 - BiRefNet Lite 512, FP16 ONNX
 - MVVM-style state flow with constructor-injected dependencies
