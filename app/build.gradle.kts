@@ -1,7 +1,10 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("androidx.baselineprofile")
 }
 
 val releaseStoreFile = providers.gradleProperty("RELEASE_STORE_FILE")
@@ -27,8 +30,8 @@ android {
         applicationId = "com.bykunalbuilds.backgroundremover"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -55,8 +58,10 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
+            isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
+            ndk.debugSymbolLevel = "FULL"
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -67,7 +72,7 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
+        buildConfig = false
     }
 
     packaging {
@@ -75,18 +80,18 @@ android {
         jniLibs.useLegacyPackaging = false
     }
 
-    androidResources {
-        noCompress += "onnx"
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions.jvmTarget = "17"
-
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
@@ -100,14 +105,15 @@ dependencies {
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.exifinterface:exifinterface:1.4.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.29.0")
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+
+    baselineProfile(project(":baselineprofile"))
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
@@ -118,4 +124,9 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+baselineProfile {
+    automaticGenerationDuringBuild = false
+    mergeIntoMain = true
 }

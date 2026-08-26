@@ -13,6 +13,8 @@ class BackgroundRemoverApplication : Application() {
 
 class AppContainer(application: Application) {
     val imageDecoder = ImageDecoder(application)
-    val backgroundRemover = OnnxBackgroundRemover(application)
+    val backgroundRemover: OnnxBackgroundRemover by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        OnnxBackgroundRemover(application)
+    }
     val imageExporter = ImageExporter(application)
 }

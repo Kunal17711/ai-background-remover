@@ -1,0 +1,7 @@
+Initial release of AI Background Remover.
+
+• On-device AI background removal
+• Transparent PNG export
+• No account required
+• No watermark
+• Privacy-focused local processing

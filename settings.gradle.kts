@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "AI Background Remover"
 include(":app")
+include(":baselineprofile")

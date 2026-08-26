@@ -14,9 +14,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bykunalbuilds.backgroundremover.ui.RemovalApp
 import com.bykunalbuilds.backgroundremover.ui.RemovalViewModel
 import com.bykunalbuilds.backgroundremover.ui.UiEffect
@@ -39,7 +40,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             BackgroundRemoverTheme {
-                val state by viewModel.state.collectAsState()
+                val state by viewModel.state.collectAsStateWithLifecycle()
                 val snackbarHostState = remember { SnackbarHostState() }
                 LaunchedEffect(viewModel) {
                     viewModel.effects.collect { effect ->
@@ -79,7 +80,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openInstagram() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(INSTAGRAM_URL))
+        val intent = Intent(Intent.ACTION_VIEW, INSTAGRAM_URL.toUri())
         try {
             startActivity(intent)
         } catch (_: Exception) {

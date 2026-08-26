@@ -10,7 +10,9 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.os.storage.StorageManager
 import android.util.Log
+import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
@@ -96,9 +98,7 @@ class OnnxBackgroundRemover(private val context: Context) {
             return modelFile
         }
 
-        if (modelDirectory.usableSpace < MODEL_FILE_BYTES + MODEL_COPY_HEADROOM_BYTES) {
-            throw IllegalStateException("There is not enough free storage to prepare the on-device model.")
-        }
+        ensureModelStorage(MODEL_FILE_BYTES + MODEL_COPY_HEADROOM_BYTES)
 
         val temporaryFile = File(modelDirectory, "$MODEL_FILE_NAME.copying")
         val temporaryVerificationFile = File(modelDirectory, "$MODEL_FILE_NAME.sha256.copying")
@@ -152,8 +152,23 @@ class OnnxBackgroundRemover(private val context: Context) {
         }
     }
 
+    private fun ensureModelStorage(requiredBytes: Long) {
+        val storageManager = context.getSystemService(StorageManager::class.java)
+            ?: throw IllegalStateException("Device storage could not be inspected.")
+        try {
+            if (storageManager.getAllocatableBytes(StorageManager.UUID_DEFAULT) < requiredBytes) {
+                throw IllegalStateException("There is not enough free storage to prepare the on-device model.")
+            }
+            storageManager.allocateBytes(StorageManager.UUID_DEFAULT, requiredBytes)
+        } catch (error: IllegalStateException) {
+            throw error
+        } catch (error: Exception) {
+            throw IllegalStateException("Storage could not be prepared for the on-device model.", error)
+        }
+    }
+
     private fun preprocess(bitmap: Bitmap): FloatArray {
-        val scaled = Bitmap.createScaledBitmap(bitmap, MODEL_SIZE, MODEL_SIZE, true)
+        val scaled = bitmap.scale(MODEL_SIZE, MODEL_SIZE)
         val pixels = IntArray(MODEL_SIZE * MODEL_SIZE)
         scaled.getPixels(pixels, 0, MODEL_SIZE, 0, 0, MODEL_SIZE, MODEL_SIZE)
         if (scaled !== bitmap) scaled.recycle()
